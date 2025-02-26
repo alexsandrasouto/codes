@@ -1,0 +1,78 @@
+#include <pcap.h>
+#include <iostream>
+#include <netinet/ip.h>    // Estrutura IP
+#include <netinet/if_ether.h> // Estrutura Ethernet
+#include <netinet/tcp.h>   // Estrutura TCP
+#include <netinet/udp.h>   // Estrutura UDP
+#include <arpa/inet.h>     // inet_ntoa
+
+// Função de callback para processar pacotes capturados
+void packetHandler(u_char *userData, const struct pcap_pkthdr* pkthdr, const u_char* packet) {
+    struct ether_header *eth_header = (struct ether_header *) packet;
+
+    std::cout << "\n--- Pacote Capturado ---\n";
+    std::cout << "Tamanho: " << pkthdr->len << " bytes\n";
+
+    // Verifica se é um pacote IPv4
+    if (ntohs(eth_header->ether_type) == ETHERTYPE_IP) {
+        struct ip *ip_header = (struct ip*)(packet + sizeof(struct ether_header));
+
+        std::cout << "Origem IP: " << inet_ntoa(ip_header->ip_src) << "\n";
+        std::cout << "Destino IP: " << inet_ntoa(ip_header->ip_dst) << "\n";
+
+        // Identifica protocolo
+        switch (ip_header->ip_p) {
+            case IPPROTO_TCP:
+                std::cout << "Protocolo: TCP\n";
+                break;
+            case IPPROTO_UDP:
+                std::cout << "Protocolo: UDP\n";
+                break;
+            case IPPROTO_ICMP:
+                std::cout << "Protocolo: ICMP\n";
+                break;
+            default:
+                std::cout << "Protocolo: Outro\n";
+                break;
+        }
+    } else {
+        std::cout << "Pacote não é IPv4.\n";
+    }
+}
+
+int main() {
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_if_t *alldevs, *device;
+
+    // Obtém a lista de dispositivos disponíveis
+    if (pcap_findalldevs(&alldevs, errbuf) == -1) {
+        std::cerr << "Erro ao obter dispositivos: " << errbuf << std::endl;
+        return 1;
+    }
+
+    // Usa o primeiro dispositivo disponível
+    device = alldevs;
+    if (!device) {
+        std::cerr << "Nenhum dispositivo encontrado.\n";
+        return 1;
+    }
+
+    std::cout << "Capturando pacotes na interface: " << device->name << "\n";
+
+    // Abre a interface para captura
+    pcap_t* handle = pcap_open_live(device->name, BUFSIZ, 1, 1000, errbuf);
+    if (!handle) {
+        std::cerr << "Erro ao abrir interface: " << errbuf << std::endl;
+        return 1;
+    }
+
+    // Captura pacotes em um loop infinito
+    pcap_loop(handle, 0, packetHandler, nullptr);
+
+    // Libera recursos
+    pcap_close(handle);
+    pcap_freealldevs(alldevs);
+
+    return 0;
+}
+
