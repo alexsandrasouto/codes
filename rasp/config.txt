@@ -1,0 +1,9 @@
+output_file=packages.csv
+capture_duration=10
+network_interface=eth0
+source_ip=true
+destination_ip=true
+source_port=true
+destination_port=true
+protocol=true
+package_size=true
